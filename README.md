@@ -61,3 +61,33 @@ Example:
 ```
 hsds_schema.py unflatten output_dir > datapackage.json
 ```
+
+
+### Datapackage to schemas
+
+Gets a hsds datapackage and convert it to a directory of json-schemas for use in hsds 3.0/
+
+Example:
+```
+python hsds_schema.py datapackage-to-schemas latest/datapackage.json schemas
+```
+
+
+### Schemas to datapackage
+
+Gets a direcory of hsds json-schemas and converts them into a datapackage.json
+
+Example:
+```
+python hsds_schema.py schemas-to-datapackage schemas > new_datapackage.json
+
+```
+
+### Schemas to csv
+
+Makes a csv representation of the schema directory
+
+Example:
+```
+python hsds_schema.py schemas-to-csv schemas > schema.csv
+```

@@ -44,7 +44,7 @@ Example:
 hsds_schema.py clean-datapackage datapackage.json
 ```
 
-### flatten
+### Flatten
 
 Takes a ```datapackage.json``` and converts it into a CSV representation of the datgapackage.  This can be useful for editing in the flattened form.  Requires an output directory and will delete directory if it already exists.
 
@@ -53,7 +53,7 @@ Example:
 hsds_schema.py flatten datapackage.json output_dir
 ```
 
-### unflatten
+### Unflatten
 
 Takes a directory of CSV files created by `flatten` command and converts it back into a datapackage. It prints the results so will need to save to a file.
 

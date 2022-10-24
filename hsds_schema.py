@@ -10,6 +10,7 @@ import flatterer
 import glob
 import shutil
 import tempfile
+from compiletojsonschema.compiletojsonschema import CompileToJsonSchema
 
 FILES = ['metadata', 'tables', 'fields', 'foreign_keys']
 
@@ -129,7 +130,7 @@ def clean_datapackage(datapackage):
             field['constraints'] = constraints
 
     with open(datapackage, "w+") as f:
-        datapackage_obj = json.dump(datapackage_obj, f, indent=4)
+        datapackage_obj = json.dump(datapackage_obj, f, indent=4, sort_keys=True)
 
 
 
@@ -185,6 +186,16 @@ def datapackage_to_schemas(datapackage, output_dir):
         tabular_required_list = []
 
         for field in fields:
+
+            type_ = field.get("type")
+            if type_.startswith("date") or type_ == 'time':
+                field['type'] = "string"
+                field['datapackage_type'] = type_
+
+            #format = field.pop("format", None)
+            #if format:
+            #    field['original_format'] = format
+
             resource_schema["properties"][field['name']] = field
             constraints = field.get('constraints', {})
             required = constraints.pop('required', False)
@@ -258,6 +269,7 @@ def schemas_to_datapackage(jsonschema_dir):
         required.extend(schema.get("tabular_required", []))
 
         schema.pop("order")
+        schema.pop("type")
 
         name = schema['name']
 
@@ -273,8 +285,6 @@ def schemas_to_datapackage(jsonschema_dir):
                     }
                 )
 
-        if foreign_keys:
-            schema["foriegn_keys"] = foreign_keys
         
         fields = []
 
@@ -283,11 +293,22 @@ def schemas_to_datapackage(jsonschema_dir):
             if contraints:
                 prop['constraints']['required'] = field in required
                 fields.append(prop)
-        
+            enum = prop.pop('enum', None)
+            if enum:
+                prop['constraints']['enum'] = enum
+            datapackage_type = prop.pop('datapackage_type', None)
+            if datapackage_type:
+                prop['type'] = datapackage_type
+
+
         schema.pop('required', None)
         schema.pop('tabular_required', None)
         
         schema['schema'] = {"primaryKey": "id"} # {""}['fields'] = fields
+
+        if foreign_keys:
+            schema['schema']["foreignKeys"] = foreign_keys
+
         schema['schema']['fields'] = fields
 
         resources.append(schema)
@@ -343,6 +364,126 @@ def schemas_to_csv(jsonschema_dir):
         flatterer.flatten(table_iterator(), tmpdirname, force=True, fields_csv='fields_for_csv.csv', only_fields=True)
         path = pathlib.Path(tmpdirname) / 'csv' / 'main.csv'
         print(path.read_text())
+
+
+def get_example(schemas, schema_name):
+    results = {}
+
+    schema = schemas[schema_name]
+
+    for key, value in schema["properties"].items():
+        # if key.endswith('_id') and 'parent' not in key:
+        #     continue
+        # example = value.get("example")
+        # if example:
+        #     try:
+        #         results[key] = int(example)
+        #     except ValueError:
+        #         results[key] = example
+        
+        obj_ref = value.get('$ref')
+
+        if obj_ref:
+           results[key] = get_example(schemas, obj_ref[:-5])
+
+        array_ref = value.get('items', {}).get("$ref")
+        if array_ref and array_ref not in ('metadata.json', 'attribute.json'):
+           results[key] = [get_example(schemas, array_ref[:-5])]
+
+    return results
+
+
+@cli.command()
+@click.argument('schamas')
+def schemas_to_example(schamas):
+
+    input_path = pathlib.Path(schamas)
+
+    schemas = {}
+    for json_schema in input_path.glob("*.json"):
+        schema = json.loads(json_schema.read_text())
+        schemas[schema["name"]] = schema
+    
+    example = get_example(schemas, 'service')
+
+    example['metadata'] = [get_example(schemas, 'metadata')]
+    example['attributes'] = [get_example(schemas, 'attribute')]
+
+    print(json.dumps(example, indent=2))
+
+
+@cli.command()
+@click.argument('schemas')
+@click.argument('output_dir')
+def compile_schemas(schemas, output_dir):
+
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = pathlib.Path(output_dir)
+
+    schemas_path = pathlib.Path(schemas)
+
+    output = CompileToJsonSchema(str(schemas_path / 'service.json')).get_as_string()
+    (output_path / 'service.json').write_text(output)
+
+    with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+        package = {
+            "type": "array", "items": {"$ref": "service.json"}
+        }
+
+        fp.write(json.dumps(package).encode())
+        fp.flush()
+        output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
+        (output_path / 'service_package.json').write_text(output)
+
+
+    output = CompileToJsonSchema(str(schemas_path / 'organization.json')).get_as_string()
+    (output_path / 'organization.json').write_text(output)
+
+    with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+        package = {
+            "type": "array", "items": {"$ref": "organization.json"}
+        }
+
+        fp.write(json.dumps(package).encode())
+        fp.flush()
+        output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
+        (output_path / 'organization_package.json').write_text(output)
+
+
+    with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+
+        service_at_location = json.loads((schemas_path / 'service_at_location.json').read_text())
+        service_at_location['properties']['service'] = {
+            "name": "service",
+            "$ref": "service.json"
+        }
+        fp.write(json.dumps(service_at_location).encode())
+        fp.flush()
+
+        service_at_location_name = fp.name
+
+        output = CompileToJsonSchema(str(schemas_path / fp.name)).get()
+
+        output['properties']['service']['properties'].pop('service_at_locations')
+
+        (output_path / 'service_at_location.json').write_text(json.dumps(output))
+
+        with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+            package = {
+                "type": "array", "items": {"$ref": service_at_location_name}
+            }
+
+            fp.write(json.dumps(package).encode())
+            fp.flush()
+            output = CompileToJsonSchema(str(schemas_path / fp.name)).get()
+
+            output['items']['properties']['service']['properties'].pop('service_at_locations')
+
+            (output_path / 'service_at_location_package.json').write_text(json.dumps(output))
+
+
+
+
 
 
 if __name__ == '__main__':

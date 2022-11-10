@@ -108,7 +108,7 @@ python hsds_schema.py compile-schemas schema_directory output_directory
 
 ### Generate examples
 
-Makes Compiled version of schemas
+Makes examples from schema files. 
 
 Examples:
 ```

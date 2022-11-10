@@ -366,36 +366,39 @@ def schemas_to_csv(jsonschema_dir):
         print(path.read_text())
 
 
-def get_example(schemas, schema_name):
+def get_example(schemas, schema_name, simple):
     results = {}
 
     schema = schemas[schema_name]
 
     for key, value in schema["properties"].items():
-        # if key.endswith('_id') and 'parent' not in key:
-        #     continue
-        # example = value.get("example")
-        # if example:
-        #     try:
-        #         results[key] = int(example)
-        #     except ValueError:
-        #         results[key] = example
+        if key.endswith('_id') and 'parent' not in key:
+            continue
+        example = value.get("example")
+        if example:
+            try:
+                results[key] = int(example)
+            except ValueError:
+                results[key] = example
         
         obj_ref = value.get('$ref')
 
         if obj_ref:
-           results[key] = get_example(schemas, obj_ref[:-5])
+           results[key] = get_example(schemas, obj_ref[:-5], simple)
 
-        array_ref = value.get('items', {}).get("$ref")
-        if array_ref and array_ref not in ('metadata.json', 'attribute.json'):
-           results[key] = [get_example(schemas, array_ref[:-5])]
+        if not simple:
+            array_ref = value.get('items', {}).get("$ref")
+            if array_ref and (array_ref not in ('metadata.json', 'attribute.json') or schema_name == "service"):
+                results[key] = [get_example(schemas, array_ref[:-5], simple)]
 
     return results
 
 
 @cli.command()
 @click.argument('schamas')
-def schemas_to_example(schamas):
+@click.argument('base')
+@click.option('--simple', is_flag=True)
+def schemas_to_example(schamas, base, simple):
 
     input_path = pathlib.Path(schamas)
 
@@ -404,10 +407,16 @@ def schemas_to_example(schamas):
         schema = json.loads(json_schema.read_text())
         schemas[schema["name"]] = schema
     
-    example = get_example(schemas, 'service')
+    if base == 'organization':
+        schemas["service"]["properties"].pop("organization")
+        schemas["organization"]["properties"]["services"] = {"type": "array", "items": {"$ref": "service.json"}}
 
-    example['metadata'] = [get_example(schemas, 'metadata')]
-    example['attributes'] = [get_example(schemas, 'attribute')]
+    if base == 'service_at_location':
+        schemas["service"]["properties"].pop("service_at_locations")
+        schemas["service_at_location"]["properties"]["service"] = {"$ref": "service.json"}
+
+    
+    example = get_example(schemas, base, simple)
 
     print(json.dumps(example, indent=2))
 
@@ -436,18 +445,30 @@ def compile_schemas(schemas, output_dir):
         (output_path / 'service_package.json').write_text(output)
 
 
-    output = CompileToJsonSchema(str(schemas_path / 'organization.json')).get_as_string()
-    (output_path / 'organization.json').write_text(output)
-
     with tempfile.NamedTemporaryFile(dir=schemas) as fp:
-        package = {
-            "type": "array", "items": {"$ref": "organization.json"}
+
+        organization = json.loads((schemas_path / 'organization.json').read_text())
+        organization['properties']['services'] = {
+            "type": "array", "items": {"$ref": "service.json"}
         }
 
-        fp.write(json.dumps(package).encode())
+        fp.write(json.dumps(organization).encode())
         fp.flush()
-        output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
-        (output_path / 'organization_package.json').write_text(output)
+
+        organization_name = fp.name
+
+        output = CompileToJsonSchema(str(schemas_path / organization_name)).get_as_string()
+        (output_path / 'organization.json').write_text(output)
+
+        with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+            package = {
+                "type": "array", "items": {"$ref": organization_name}
+            }
+
+            fp.write(json.dumps(package).encode())
+            fp.flush()
+            output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
+            (output_path / 'organization_package.json').write_text(output)
 
 
     with tempfile.NamedTemporaryFile(dir=schemas) as fp:
@@ -466,24 +487,20 @@ def compile_schemas(schemas, output_dir):
 
         output['properties']['service']['properties'].pop('service_at_locations')
 
-        (output_path / 'service_at_location.json').write_text(json.dumps(output))
+        (output_path / 'service_at_location.json').write_text(json.dumps(output, indent=2))
 
         with tempfile.NamedTemporaryFile(dir=schemas) as fp:
             package = {
                 "type": "array", "items": {"$ref": service_at_location_name}
             }
 
-            fp.write(json.dumps(package).encode())
+            fp.write(json.dumps(package, indent=2).encode())
             fp.flush()
             output = CompileToJsonSchema(str(schemas_path / fp.name)).get()
 
             output['items']['properties']['service']['properties'].pop('service_at_locations')
 
-            (output_path / 'service_at_location_package.json').write_text(json.dumps(output))
-
-
-
-
+            (output_path / 'service_at_location_package.json').write_text(json.dumps(output, indent=2))
 
 
 if __name__ == '__main__':

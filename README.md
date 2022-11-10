@@ -29,7 +29,12 @@ Options:
 
 Commands:
   clean-datapackage
+  compile-schemas
+  datapackage-to-schemas
   flatten
+  schemas-to-csv
+  schemas-to-datapackage
+  schemas-to-example
   unflatten
 ```
 
@@ -90,4 +95,26 @@ Makes a csv representation of the schema directory
 Example:
 ```
 python hsds_schema.py schemas-to-csv schemas > schema.csv
+```
+
+### Compile schemas
+
+Makes Compiled version of schemas
+
+Example:
+```
+python hsds_schema.py compile-schemas schema_directory output_directory 
+```
+
+### Generate examples
+
+Makes Compiled version of schemas
+
+Examples:
+```
+python hsds_schema.py schemas-to-examples schema_directory service > service_example.json 
+python hsds_schema.py schemas-to-examples --simple schema_directory service > simple_service_example.json
+
+python hsds_schema.py schemas-to-examples schema_directory organization > organization_example.json 
+python hsds_schema.py schemas-to-examples --simple schema_directory organization > simple_organization_example.json
 ```

@@ -393,14 +393,8 @@ def get_example(schemas, schema_name, simple):
 
     return results
 
-
-@cli.command()
-@click.argument('schamas')
-@click.argument('base')
-@click.option('--simple', is_flag=True)
-def schemas_to_example(schamas, base, simple):
-
-    input_path = pathlib.Path(schamas)
+def example(schemas, base, simple):
+    input_path = pathlib.Path(schemas)
 
     schemas = {}
     for json_schema in input_path.glob("*.json"):
@@ -416,9 +410,41 @@ def schemas_to_example(schamas, base, simple):
         schemas["service_at_location"]["properties"]["service"] = {"$ref": "service.json"}
 
     
-    example = get_example(schemas, base, simple)
+    return get_example(schemas, base, simple)
 
-    print(json.dumps(example, indent=2))
+
+@cli.command()
+@click.argument('schemas')
+@click.argument('output')
+def schemas_to_doc_examples(schemas, output):
+
+    output_path = pathlib.Path(output)
+    examples = [
+        # entity, filename, simple
+        ('service', 'service_full.json', False),
+        ('service', 'service_simple.json', True),
+        ('service_at_location', 'service_at_location_full.json', False),
+        ('service_at_location', 'service_at_location_simple.json', True),
+        ('organization', 'organization_full.json', False),
+        ('organization', 'organization_simple.json', True),
+        ('taxonomy', 'taxonomy.json', False),
+        ('taxonomy_term', 'taxonomy_term.json', False),
+        ('location', 'location.json', False),
+    ]
+
+
+    for entity, filename, simple in examples:
+        with open(output_path / filename, 'w+') as f:
+            json.dump(example(schemas, entity, simple), f, indent=2)
+
+
+
+@cli.command()
+@click.argument('schamas')
+@click.argument('base')
+@click.option('--simple', is_flag=True)
+def schemas_to_example(schemas, base, simple):
+    print(json.dumps(example(schemas, base, simple), indent=2))
 
 
 @cli.command()

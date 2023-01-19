@@ -413,6 +413,32 @@ def example(schemas, base, simple):
     return get_example(schemas, base, simple)
 
 
+def tabular_example(schemas):
+    input_path = pathlib.Path(schemas)
+
+    schemas = {}
+    for json_schema in input_path.glob("*.json"):
+        schema = json.loads(json_schema.read_text())
+        schemas[schema["name"]] = schema
+
+    output = {}
+
+    for name, schema in sorted(schemas.items(), key=lambda i:i[1].get('order')) :
+        table_example = {}
+
+        for key, value in schema['properties'].items():
+            example = value.get("example")
+            if example:
+                try:
+                    table_example[key] = int(example)
+                except ValueError:
+                    table_example[key] = example
+
+        output[schema['name']] = [table_example]
+
+    return output
+
+
 @cli.command()
 @click.argument('schemas')
 @click.argument('output')
@@ -437,6 +463,17 @@ def schemas_to_doc_examples(schemas, output):
         with open(output_path / filename, 'w+') as f:
             json.dump(example(schemas, entity, simple), f, indent=2)
 
+    with open(output_path / 'tabular.json', 'w+') as f:
+        json.dump(tabular_example(schemas), f, indent=2)
+    
+    os.makedirs(output_path / 'csv', exist_ok=True)
+
+    for table, rows in tabular_example(schemas).items():
+        with open(output_path / 'csv' / f'{table}.csv', 'w+') as f:
+            dict_writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            dict_writer.writeheader()
+            for row in rows:
+                dict_writer.writerow(row)
 
 
 @cli.command()
@@ -447,6 +484,24 @@ def schemas_to_example(schemas, base, simple):
     print(json.dumps(example(schemas, base, simple), indent=2))
 
 
+def compile_tabular(schemas_path, output_path):
+    compiled = {"type": "object",
+                "properties": {}}
+
+    schemas = {}
+    for json_schema in schemas_path.glob("*.json"):
+        schema = json.loads(json_schema.read_text())
+        schemas[schema["name"]] = schema
+        
+    for name, schema in sorted(schemas.items(), key=lambda i:i[1].get('order')) :
+        for key, value in list(schema['properties'].items()):
+            if "$ref" in value:
+                schema['properties'].pop(key)
+            compiled["properties"][name.split(".")[0]] = {"type": "array", "items": schema}
+
+    (output_path / 'tabular.json').write_text(json.dumps(compiled, indent=2))
+
+
 @cli.command()
 @click.argument('schemas')
 @click.argument('output_dir')
@@ -454,8 +509,9 @@ def compile_schemas(schemas, output_dir):
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = pathlib.Path(output_dir)
-
     schemas_path = pathlib.Path(schemas)
+
+    compile_tabular(schemas_path, output_path)
 
     output = CompileToJsonSchema(str(schemas_path / 'service.json')).get_as_string()
     (output_path / 'service.json').write_text(output)

@@ -6,6 +6,7 @@ from setuptools.command.install import install
 install_requires = [
     "click",
     "flatterer",
+    "compiletojsonschema",
 ]
 
 setup(

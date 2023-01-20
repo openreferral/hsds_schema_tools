@@ -177,7 +177,13 @@ def datapackage_to_schemas(datapackage, output_dir):
     for num, resource in enumerate(datapackage_obj['resources']):
         json_schema_path = output_path / (resource['name'] + '.json')
         resource_schema = copy.deepcopy(resource)
-        resource_schema["order"] = num + 1
+        resource_schema['datapackage_metadata'] = {
+            'format': resource_schema.pop('format'),
+            'mediatype': resource_schema.pop('mediatype'),
+            'profile': resource_schema.pop('profile'),
+            'order': num + 1
+        }
+
         resource_schema["type"] = "object"
         resource_schema["properties"] = {}
         fields = resource_schema["schema"].pop("fields")
@@ -261,12 +267,14 @@ def schemas_to_datapackage(jsonschema_dir):
     
     resources = []
 
-    for schema in sorted(schemas, key=lambda i: i['order']):
+    for schema in sorted(schemas, key=lambda i: i['datapackage_metadata']['order']):
         foreign_keys = []
 
         required = []
         required.extend(schema.get("required", []))
         required.extend(schema.get("tabular_required", []))
+
+        schema.update(schema.pop("datapackage_metadata"))
 
         schema.pop("order")
         schema.pop("type")
@@ -292,6 +300,7 @@ def schemas_to_datapackage(jsonschema_dir):
             contraints = prop.get('constraints')
             if contraints:
                 prop['constraints']['required'] = field in required
+                prop['constraints']['unique'] = prop['constraints'].pop('unique')
                 fields.append(prop)
             enum = prop.pop('enum', None)
             if enum:
@@ -306,10 +315,10 @@ def schemas_to_datapackage(jsonschema_dir):
         
         schema['schema'] = {"primaryKey": "id"} # {""}['fields'] = fields
 
+        schema['schema']['fields'] = fields
+
         if foreign_keys:
             schema['schema']["foreignKeys"] = foreign_keys
-
-        schema['schema']['fields'] = fields
 
         resources.append(schema)
 
@@ -328,7 +337,7 @@ def schemas_to_datapackage(jsonschema_dir):
         "resources": resources
     }
 
-    print(json.dumps(datapackage, indent=2))
+    print(json.dumps(datapackage, indent=4))
 
 
 @cli.command()

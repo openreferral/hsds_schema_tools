@@ -246,6 +246,10 @@ def datapackage_to_schemas(datapackage, output_dir):
 @cli.command()
 @click.argument('jsonschema_dir')
 def schemas_to_datapackage(jsonschema_dir):
+    datapackage = _schemas_to_datapackage(jsonschema_dir)
+    print(datapackage)
+
+def _schemas_to_datapackage(jsonschema_dir):
     input_path = pathlib.Path(jsonschema_dir)
     
     fks = []
@@ -337,7 +341,8 @@ def schemas_to_datapackage(jsonschema_dir):
         "resources": resources
     }
 
-    print(json.dumps(datapackage, indent=4))
+    return json.dumps(datapackage, indent=4)
+
 
 
 @cli.command()
@@ -352,7 +357,7 @@ def schemas_to_csv(jsonschema_dir):
             schema = json.loads(json_schema.read_text())
             schemas.append(schema)
 
-        for schema in sorted(schemas, key=lambda i: i['order']):
+        for schema in sorted(schemas, key=lambda i: i['datapackage_metadata']['order']):
             name = schema['name']
 
             required = schema.get("required", [])
@@ -432,7 +437,7 @@ def tabular_example(schemas):
 
     output = {}
 
-    for name, schema in sorted(schemas.items(), key=lambda i:i[1].get('order')) :
+    for name, schema in sorted(schemas.items(), key=lambda i:i[1]['datapackage_metadata']['order']) :
         table_example = {}
 
         for key, value in schema['properties'].items():
@@ -452,7 +457,9 @@ def tabular_example(schemas):
 @click.argument('schemas')
 @click.argument('output')
 def schemas_to_doc_examples(schemas, output):
+    _schemas_to_doc_examples(schemas, output)
 
+def _schemas_to_doc_examples(schemas, output):
     output_path = pathlib.Path(output)
     examples = [
         # entity, filename, simple
@@ -502,7 +509,7 @@ def compile_tabular(schemas_path, output_path):
         schema = json.loads(json_schema.read_text())
         schemas[schema["name"]] = schema
         
-    for name, schema in sorted(schemas.items(), key=lambda i:i[1].get('order')) :
+    for name, schema in sorted(schemas.items(), key=lambda i:i[1]['datapackage_metadata']['order']) :
         for key, value in list(schema['properties'].items()):
             if "$ref" in value:
                 schema['properties'].pop(key)
@@ -515,7 +522,9 @@ def compile_tabular(schemas_path, output_path):
 @click.argument('schemas')
 @click.argument('output_dir')
 def compile_schemas(schemas, output_dir):
+    _compile_schemas(schemas, output_dir)
 
+def _compile_schemas(schemas, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     output_path = pathlib.Path(output_dir)
     schemas_path = pathlib.Path(schemas)
@@ -592,6 +601,19 @@ def compile_schemas(schemas, output_dir):
             output['items']['properties']['service']['properties'].pop('service_at_locations')
 
             (output_path / 'service_at_location_package.json').write_text(json.dumps(output, indent=2))
+
+
+@cli.command()
+def docs_all():
+    schema_dir = pathlib.Path('schema') 
+    example_dir = pathlib.Path('examples') 
+    compiled_dir = schema_dir / 'compiled'
+    with open('datapackage.json', 'w+') as f: 
+        datapackage = _schemas_to_datapackage(schema_dir)
+        f.write(datapackage)
+
+    _schemas_to_doc_examples(schema_dir, example_dir)
+    _compile_schemas(schema_dir, compiled_dir)
 
 
 if __name__ == '__main__':

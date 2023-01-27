@@ -532,7 +532,7 @@ def compile_definitions(schemas_path, output_path):
 
             obj_ref = prop.get("$ref")
             if obj_ref:
-                prop['$ref'] = f'/definitions/{obj_ref.split(".")[0]}'
+                prop['$ref'] = f'#/definitions/{obj_ref.split(".")[0]}'
 
         schemas[schema["name"]] = schema
     

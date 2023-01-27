@@ -8,6 +8,7 @@ import click
 import pathlib 
 import flatterer
 import glob
+from collections import OrderedDict
 import shutil
 import tempfile
 from compiletojsonschema.compiletojsonschema import CompileToJsonSchema
@@ -518,6 +519,60 @@ def compile_tabular(schemas_path, output_path):
     (output_path / 'tabular.json').write_text(json.dumps(compiled, indent=2))
 
 
+def compile_definitions(schemas_path, output_path):
+
+    schemas = {}
+    for json_schema in schemas_path.glob("*.json"):
+        schema = json.loads(json_schema.read_text())
+
+        for field, prop in schema['properties'].items():
+            array_ref = prop.get('items', {}).get("$ref")
+            if array_ref:
+                prop['items']['$ref'] = f'#/definitions/{array_ref.split(".")[0]}'
+
+            obj_ref = prop.get("$ref")
+            if obj_ref:
+                prop['$ref'] = f'/definitions/{obj_ref.split(".")[0]}'
+
+        schemas[schema["name"]] = schema
+    
+    compiled = schemas.pop('service')
+    compiled['definitions'] = {}
+
+    for name, schema in sorted(schemas.items(), key=lambda i:i[1]['datapackage_metadata']['order']):
+        compiled['definitions'][name] = schema
+    
+    (output_path / 'service_with_definitions.json').write_text(json.dumps(compiled, indent=2))
+
+
+# def add_descriptions(schemas_path):
+#     schemas = {}
+#     for json_schema in schemas_path.glob("*.json"):
+#         schema = json.loads(json_schema.read_text())
+#         schemas[schema["name"]] = schema
+    
+
+#     for json_schema in schemas_path.glob("*.json"):
+#         schema = json.loads(json_schema.read_text(), object_pairs_hook=OrderedDict)
+#         for field, prop in list(schema['properties'].items()):
+#             array_ref = prop.get('items', {}).get("$ref")
+#             if array_ref:
+#                 prop['description'] = schemas[array_ref.split(".")[0]]['description']
+#                 prop.move_to_end('description', False)
+#                 prop.move_to_end('name', False)
+
+
+#             obj_ref = prop.get("$ref")
+#             if obj_ref:
+#                 prop['description'] = schemas[obj_ref.split(".")[0]]['description']
+#                 prop.move_to_end('description', False)
+#                 prop.move_to_end('name', False)
+
+#         with open(json_schema, 'w+') as f:
+#             json.dump(schema, f, indent=4)
+    
+
+
 @cli.command()
 @click.argument('schemas')
 @click.argument('output_dir')
@@ -530,6 +585,8 @@ def _compile_schemas(schemas, output_dir):
     schemas_path = pathlib.Path(schemas)
 
     compile_tabular(schemas_path, output_path)
+    compile_definitions(schemas_path, output_path)
+    #add_descriptions(schemas_path)
 
     output = CompileToJsonSchema(str(schemas_path / 'service.json')).get_as_string()
     (output_path / 'service.json').write_text(output)

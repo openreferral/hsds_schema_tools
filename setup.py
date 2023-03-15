@@ -11,7 +11,7 @@ install_requires = [
 
 setup(
     name="hsds_schema_tools",
-    version="0.0.4",
+    version="0.0.5",
     author="Open Data Services",
     author_email="code@opendataservices.coop",
     py_modules=["hsds_schema"],

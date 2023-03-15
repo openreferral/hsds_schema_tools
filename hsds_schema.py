@@ -412,7 +412,17 @@ def get_example(schemas, schema_name, simple):
 
     return results
 
-def example(schemas, base, simple):
+page = {
+    "total_items": 10,
+    "total_pages": 10,
+    "page_number": 1,
+    "size": 1,
+    "first_page": True,
+    "last_page": False,
+    "empty": False,
+}          
+
+def example(schemas, base, paginated):
     input_path = pathlib.Path(schemas)
 
     schemas = {}
@@ -430,8 +440,13 @@ def example(schemas, base, simple):
         schemas["service"]["properties"].pop("service_at_locations")
         schemas["service_at_location"]["properties"]["service"] = {"$ref": "service.json"}
 
-    
-    return get_example(schemas, base, simple)
+    example = get_example(schemas, base, paginated)
+    if paginated:
+        new_example = page.copy()
+        new_example["contents"] = [example]
+        example = new_example
+
+    return example 
 
 
 def tabular_example(schemas):
@@ -473,14 +488,15 @@ def _schemas_to_doc_examples(schemas, output):
     examples = [
         # entity, filename, simple
         ('service', 'service_full.json', False),
-        ('service', 'service_simple.json', True),
+        ('service', 'service_list.json', True),
         ('service_at_location', 'service_at_location_full.json', False),
-        ('service_at_location', 'service_at_location_simple.json', True),
+        ('service_at_location', 'service_at_location_list.json', True),
         ('organization', 'organization_full.json', False),
-        ('organization', 'organization_simple.json', True),
+        ('organization', 'organization_list.json', True),
         ('taxonomy', 'taxonomy.json', False),
+        ('taxonomy', 'taxonomy_list.json', True),
         ('taxonomy_term', 'taxonomy_term.json', False),
-        ('location', 'location.json', False),
+        ('taxonomy_term', 'taxonomy_term_list.json', True),
     ]
 
 

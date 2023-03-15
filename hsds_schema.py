@@ -257,6 +257,8 @@ def _schemas_to_datapackage(jsonschema_dir):
     schemas = []
 
     for json_schema in input_path.glob("*.json"):
+        if str(json_schema).endswith('openapi.json'):
+            continue
         schema = json.loads(json_schema.read_text())
         schemas.append(schema)
         name = schema['name']
@@ -355,6 +357,8 @@ def schemas_to_csv(jsonschema_dir):
     def table_iterator():
         schemas = []
         for json_schema in input_path.glob("*.json"):
+            if str(json_schema).endswith('openapi.json'):
+                continue
             schema = json.loads(json_schema.read_text())
             schemas.append(schema)
 
@@ -413,6 +417,8 @@ def example(schemas, base, simple):
 
     schemas = {}
     for json_schema in input_path.glob("*.json"):
+        if str(json_schema).endswith('openapi.json'):
+            continue
         schema = json.loads(json_schema.read_text())
         schemas[schema["name"]] = schema
     
@@ -433,6 +439,8 @@ def tabular_example(schemas):
 
     schemas = {}
     for json_schema in input_path.glob("*.json"):
+        if str(json_schema).endswith('openapi.json'):
+            continue
         schema = json.loads(json_schema.read_text())
         schemas[schema["name"]] = schema
 
@@ -507,6 +515,8 @@ def compile_tabular(schemas_path, output_path):
 
     schemas = {}
     for json_schema in schemas_path.glob("*.json"):
+        if str(json_schema).endswith('openapi.json'):
+            continue
         schema = json.loads(json_schema.read_text())
         schemas[schema["name"]] = schema
         
@@ -523,6 +533,8 @@ def compile_definitions(schemas_path, output_path):
 
     schemas = {}
     for json_schema in schemas_path.glob("*.json"):
+        if str(json_schema).endswith('openapi.json'):
+            continue
         schema = json.loads(json_schema.read_text())
 
         for field, prop in schema['properties'].items():
@@ -545,31 +557,6 @@ def compile_definitions(schemas_path, output_path):
     (output_path / 'service_with_definitions.json').write_text(json.dumps(compiled, indent=2))
 
 
-# def add_descriptions(schemas_path):
-#     schemas = {}
-#     for json_schema in schemas_path.glob("*.json"):
-#         schema = json.loads(json_schema.read_text())
-#         schemas[schema["name"]] = schema
-    
-
-#     for json_schema in schemas_path.glob("*.json"):
-#         schema = json.loads(json_schema.read_text(), object_pairs_hook=OrderedDict)
-#         for field, prop in list(schema['properties'].items()):
-#             array_ref = prop.get('items', {}).get("$ref")
-#             if array_ref:
-#                 prop['description'] = schemas[array_ref.split(".")[0]]['description']
-#                 prop.move_to_end('description', False)
-#                 prop.move_to_end('name', False)
-
-
-#             obj_ref = prop.get("$ref")
-#             if obj_ref:
-#                 prop['description'] = schemas[obj_ref.split(".")[0]]['description']
-#                 prop.move_to_end('description', False)
-#                 prop.move_to_end('name', False)
-
-#         with open(json_schema, 'w+') as f:
-#             json.dump(schema, f, indent=4)
     
 
 
@@ -665,6 +652,7 @@ def docs_all():
     schema_dir = pathlib.Path('schema') 
     example_dir = pathlib.Path('examples') 
     compiled_dir = schema_dir / 'compiled'
+    #add_titles(schema_dir)
     with open('datapackage.json', 'w+') as f: 
         datapackage = _schemas_to_datapackage(schema_dir)
         f.write(datapackage)

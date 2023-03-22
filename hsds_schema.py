@@ -573,7 +573,12 @@ def compile_definitions(schemas_path, output_path):
     (output_path / 'service_with_definitions.json').write_text(json.dumps(compiled, indent=2))
 
 
-    
+def remove_one_to_many(properties):
+    for key, value in list(properties.items()):
+        if value.get("type") == "array" and "items" in value:
+            properties.pop(key)
+        if value.get("type") == "object" and "properties" in value:
+            remove_one_to_many(value["properties"])
 
 
 @cli.command()
@@ -593,6 +598,10 @@ def _compile_schemas(schemas, output_dir):
 
     output = CompileToJsonSchema(str(schemas_path / 'service.json')).get_as_string()
     (output_path / 'service.json').write_text(output)
+
+    output = json.loads(output)
+    remove_one_to_many(output['properties'])
+    (output_path / 'service_list.json').write_text(json.dumps(output, indent=2))
 
     with tempfile.NamedTemporaryFile(dir=schemas) as fp:
         package = {
@@ -619,6 +628,10 @@ def _compile_schemas(schemas, output_dir):
 
         output = CompileToJsonSchema(str(schemas_path / organization_name)).get_as_string()
         (output_path / 'organization.json').write_text(output)
+
+        output = json.loads(output)
+        remove_one_to_many(output['properties'])
+        (output_path / 'organization_list.json').write_text(json.dumps(output, indent=2))
 
         with tempfile.NamedTemporaryFile(dir=schemas) as fp:
             package = {
@@ -648,6 +661,9 @@ def _compile_schemas(schemas, output_dir):
         output['properties']['service']['properties'].pop('service_at_locations')
 
         (output_path / 'service_at_location.json').write_text(json.dumps(output, indent=2))
+
+        remove_one_to_many(output['properties'])
+        (output_path / 'service_at_location_list.json').write_text(json.dumps(output, indent=2))
 
         with tempfile.NamedTemporaryFile(dir=schemas) as fp:
             package = {

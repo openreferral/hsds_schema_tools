@@ -256,7 +256,7 @@ def _schemas_to_datapackage(jsonschema_dir):
     fks = []
     schemas = []
 
-    for json_schema in input_path.glob("*.json"):
+    for json_schema in sorted(input_path.glob("*.json")):
         if str(json_schema).endswith('openapi.json'):
             continue
         schema = json.loads(json_schema.read_text())

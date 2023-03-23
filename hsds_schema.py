@@ -315,6 +315,7 @@ def _schemas_to_datapackage(jsonschema_dir):
             datapackage_type = prop.pop('datapackage_type', None)
             if datapackage_type:
                 prop['type'] = datapackage_type
+                prop.pop('format', None)
 
 
         schema.pop('required', None)

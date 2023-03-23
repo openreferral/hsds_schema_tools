@@ -582,6 +582,24 @@ def remove_one_to_many(properties):
             remove_one_to_many(value["properties"])
 
 
+def compile_to_openapi30(schemas_path, docs_dir):
+    open_api_data = json.loads((schemas_path / 'openapi.json').read_text())
+    open_api_data['openapi'] = "3.0.0"
+    open_api_data.pop('jsonSchemaDialect')
+
+    open_api_data['info'] = {
+        "title": "HSDS OpenAPI",
+        "version": "3.0",
+        "description": "",
+        "license": {
+          "name": "Creative Commons Attribution Share-Alike 4.0 license",
+          "url": "https://creativecommons.org/licenses/by/4.0/"
+        }
+      }
+    (docs_dir / 'extras' / 'openapi30.json').write_text(json.dumps(open_api_data, indent=2))
+
+
+
 @cli.command()
 @click.argument('schemas')
 @click.argument('output_dir')
@@ -683,8 +701,11 @@ def _compile_schemas(schemas, output_dir):
 @cli.command()
 def docs_all():
     schema_dir = pathlib.Path('schema') 
+    docs_dir = pathlib.Path('docs') 
     example_dir = pathlib.Path('examples') 
     compiled_dir = schema_dir / 'compiled'
+
+    compile_to_openapi30(schema_dir, docs_dir)
     #add_titles(schema_dir)
     with open('datapackage.json', 'w+') as f: 
         datapackage = _schemas_to_datapackage(schema_dir)

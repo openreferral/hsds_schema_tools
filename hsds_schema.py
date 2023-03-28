@@ -396,10 +396,13 @@ def get_example(schemas, schema_name, simple):
             continue
         example = value.get("example")
         if example:
-            try:
-                results[key] = int(example)
-            except ValueError:
+            if value.get("type") == "string":
                 results[key] = example
+            else:
+                try:
+                    results[key] = int(example)
+                except ValueError:
+                    results[key] = example
         
         obj_ref = value.get('$ref')
 

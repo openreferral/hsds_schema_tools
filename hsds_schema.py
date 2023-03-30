@@ -473,7 +473,7 @@ def tabular_example(schemas):
                 except ValueError:
                     table_example[key] = example
 
-        output[schema['name']] = [table_example]
+        output[schema['path']] = [table_example]
 
     return output
 
@@ -510,8 +510,8 @@ def _schemas_to_doc_examples(schemas, output):
     
     os.makedirs(output_path / 'csv', exist_ok=True)
 
-    for table, rows in tabular_example(schemas).items():
-        with open(output_path / 'csv' / f'{table}.csv', 'w+') as f:
+    for path, rows in tabular_example(schemas).items():
+        with open(output_path / 'csv' / path, 'w+') as f:
             dict_writer = csv.DictWriter(f, fieldnames=rows[0].keys())
             dict_writer.writeheader()
             for row in rows:

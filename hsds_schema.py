@@ -593,7 +593,7 @@ def compile_to_openapi30(schemas_path, docs_dir):
     open_api_data['info'] = {
         "title": "HSDS OpenAPI",
         "version": "3.0",
-        "description": "Open API for the Human Services Data Specification. See [HSDS documentation](http://docs.openreferral.org/en/3.0-dev/) for more details on the specification." ,
+        "description": "Open API for the Human Services Data Specification. See [HSDS documentation](http://docs.openreferral.org/en/3.0/) for more details on the specification." ,
         "license": {
           "name": "Creative Commons Attribution Share-Alike 4.0 license",
           "url": "https://creativecommons.org/licenses/by/4.0/"

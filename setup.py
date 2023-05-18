@@ -7,6 +7,7 @@ install_requires = [
     "click",
     "flatterer",
     "compiletojsonschema",
+    "json-merge-patch",
 ]
 
 setup(

@@ -5,6 +5,7 @@ from setuptools.command.install import install
 
 install_requires = [
     "click",
+    "requests",
     "flatterer",
     "compiletojsonschema",
     "json-merge-patch",
@@ -12,7 +13,7 @@ install_requires = [
 
 setup(
     name="hsds_schema_tools",
-    version="0.0.9",
+    version="0.0.10",
     author="Open Data Services",
     author_email="code@opendataservices.coop",
     py_modules=["hsds_schema"],

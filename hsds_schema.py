@@ -3,19 +3,127 @@
 import csv
 import os
 import json
-import copy
 import click
-import pathlib 
+import pathlib
 import flatterer
-import glob
-from collections import OrderedDict
-import shutil
 import tempfile
+import requests
+import json_merge_patch
 from compiletojsonschema.compiletojsonschema import CompileToJsonSchema
+
+def tabular_example(schemas):
+    input_path = pathlib.Path(schemas)
+
+    schemas = {}
+    for json_schema in input_path.glob("*.json"):
+        if str(json_schema).endswith('openapi.json'):
+            continue
+        schema = json.loads(json_schema.read_text())
+        schemas[schema["name"]] = schema
+
+    output = {}
+
+    for name, schema in sorted(schemas.items(), key=lambda i:i[1]['datapackage_metadata']['order']) :
+        table_example = {}
+
+        for key, value in schema['properties'].items():
+            example = value.get("example")
+            if example:
+                try:
+                    table_example[key] = int(example)
+                except ValueError:
+                    table_example[key] = example
+
+        output[schema['path']] = [table_example]
+
+    return output
+
+def get_schemas_from_github(profile_url, branch='main'):
+    url = "https://api.github.com/repos/openreferral/specification/contents/schema?ref=3.0"
+
+    if profile_url.startswith("https://github.com"):
+        path = profile_url.replace("https://github.com", "")
+        profile_url = "https://raw.githubusercontent.com" + path.rstrip("/") + "/" + branch
+
+    response = requests.get(url)
+    data = json.loads(response.text)
+
+    schemas = {}
+    for file in data:
+        # get the download URL and the file name
+        url = file['download_url']
+        if not url:  # skip directories
+            continue
+        filename = file['name']
+
+        response_text = requests.get(url).text
+        if filename == 'openapi.json':
+            response_text = response_text.replace('https://raw.githubusercontent.com/openreferral/specification/3.0', profile_url)
+
+        response = json.loads(response_text)
+        schemas[filename] = response
+
+    return schemas
+
 
 @click.group()
 def cli():
     pass
+
+
+def profile_to_schema(profile_url, branch='main', profile_dir='profile', schema_dir='schema'):
+    core_schemas = get_schemas_from_github(profile_url, branch=branch)
+
+    final_schemas = {}
+    profile_schemas = {}
+
+    for profile_schema in sorted(pathlib.Path(profile_dir).glob("*.json")):
+        profile_schemas[profile_schema.name] = json.loads(profile_schema.read_text())
+
+    removed = []
+    for name, schema in profile_schemas.items():
+        if not schema:
+            removed.append(name)
+
+    for name, schema in profile_schemas.items():
+        if name not in core_schemas:
+            final_schemas[name] = schema
+            continue
+        if schema:
+            merged = json_merge_patch.merge(core_schemas[name], schema)
+            for removed_name in removed:
+                if name == 'openapi.json':
+                    continue
+
+                properties = merged['properties']
+                for prop in list(properties):
+                    if properties[prop].get('$ref') == removed_name or properties[prop].get('items', {}).get('$ref') == removed_name:
+                        properties.pop(prop)
+            final_schemas[name] = merged
+
+    for name, schema in core_schemas.items():
+        if name in profile_schemas:
+            continue
+        for removed_name in removed:
+            if name == 'openapi.json':
+                continue
+            properties = schema['properties']
+            for prop in list(properties):
+                if properties[prop].get('$ref') == removed_name or properties[prop].get('items', {}).get('$ref') == removed_name:
+                    properties.pop(prop)
+        final_schemas[name] = schema
+
+
+    schema_path = pathlib.Path(schema_dir)
+
+    for name, schema in final_schemas.items():
+        (schema_path / name).write_text(json.dumps(schema, indent=2))
+
+
+def clean_dir(directory):
+    for file in directory.iterdir():
+        if file.is_file():
+            file.unlink()
 
 @cli.command()
 @click.argument('jsonschema_dir')
@@ -73,7 +181,6 @@ def _schemas_to_datapackage(jsonschema_dir):
                     }
                 )
 
-        
         fields = []
 
         for field, prop in list(schema.pop('properties').items()):
@@ -119,7 +226,6 @@ def _schemas_to_datapackage(jsonschema_dir):
     }
 
     return json.dumps(datapackage, indent=4)
-
 
 
 @cli.command()
@@ -185,6 +291,8 @@ def get_example(schemas, schema_name, simple):
         if not simple:
             array_ref = value.get('items', {}).get("$ref")
             if array_ref and (array_ref not in ('metadata.json', 'attribute.json') or schema_name == "service"):
+                #if array_ref in ('metadata.json', 'attribute.json') and array_ref not in schemas:
+                #    continue
                 results[key] = [get_example(schemas, array_ref[:-5], simple)]
 
     return results
@@ -223,7 +331,7 @@ def example(schemas, base, paginated):
         new_example["contents"] = [example]
         example = new_example
 
-    return example 
+    return example
 
 
 @cli.command()
@@ -248,14 +356,10 @@ def _schemas_to_doc_examples(schemas, output):
         ('taxonomy_term', 'taxonomy_term_list.json', True),
     ]
 
-
     for entity, filename, simple in examples:
         with open(output_path / filename, 'w+') as f:
             json.dump(example(schemas, entity, simple), f, indent=2)
 
-    with open(output_path / 'tabular.json', 'w+') as f:
-        json.dump(tabular_example(schemas), f, indent=2)
-    
     os.makedirs(output_path / 'csv', exist_ok=True)
 
     for path, rows in tabular_example(schemas).items():
@@ -438,6 +542,37 @@ def docs_all():
         datapackage = _schemas_to_datapackage(schema_dir)
         f.write(datapackage)
 
+    _schemas_to_doc_examples(schema_dir, example_dir)
+    _compile_schemas(schema_dir, compiled_dir)
+
+
+@cli.command()
+@click.argument('profile_url')
+@click.option('--branch', default='main')
+@click.option('--clean', is_flag=True, default=False)
+def profile_all(profile_url, branch, clean=False):
+    profile_to_schema(profile_url, branch, profile_dir='profile', schema_dir='schema')
+    schema_dir = pathlib.Path('schema')
+
+    if clean:
+        clean_dir(schema_dir)
+
+    example_dir = pathlib.Path('examples')
+    example_dir.mkdir(exist_ok=True)
+
+    if clean:
+        clean_dir(example_dir)
+
+    compiled_dir = schema_dir / 'compiled'
+    compiled_dir.mkdir(exist_ok=True)
+
+    if clean:
+        clean_dir(compiled_dir)
+    #compile_to_openapi30(schema_dir, docs_dir)
+    with open('datapackage.json', 'w+') as f: 
+        datapackage = _schemas_to_datapackage(schema_dir)
+        f.write(datapackage)
+    
     _schemas_to_doc_examples(schema_dir, example_dir)
     _compile_schemas(schema_dir, compiled_dir)
 

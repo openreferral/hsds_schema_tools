@@ -551,11 +551,12 @@ def docs_all():
 @click.option('--branch', default='main')
 @click.option('--clean', is_flag=True, default=False)
 def profile_all(profile_url, branch, clean=False):
-    profile_to_schema(profile_url, branch, profile_dir='profile', schema_dir='schema')
     schema_dir = pathlib.Path('schema')
 
     if clean:
         clean_dir(schema_dir)
+
+    profile_to_schema(profile_url, branch, profile_dir='profile', schema_dir='schema')
 
     example_dir = pathlib.Path('examples')
     example_dir.mkdir(exist_ok=True)

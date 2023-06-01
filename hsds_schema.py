@@ -1,5 +1,6 @@
 import csv
 import os
+import copy
 import json
 import click
 import pathlib
@@ -404,6 +405,25 @@ def compile_definitions(schemas_path, output_path):
     (output_path / 'service_with_definitions.json').write_text(json.dumps(compiled, indent=2))
 
 
+def compile_schema(schema, schemas):
+    for field, prop in list(schema['properties'].items()):
+        array_ref = prop.get('items', {}).get("$ref")
+        if array_ref:
+            prop['items'].pop("$ref")
+            old_prop = prop['items'].copy()
+            prop['items'] = compile_schema(copy.deepcopy(schemas[array_ref]), schemas)
+            prop.update(old_prop)
+
+        obj_ref = prop.get("$ref")
+        if obj_ref:
+            prop.pop("$ref")
+            old_prop = prop.copy()
+            prop.clear()
+            prop.update(compile_schema(copy.deepcopy(schemas[obj_ref]), schemas))
+            prop.update(old_prop)
+    return schema
+
+
 def remove_one_to_many(properties):
     for key, value in list(properties.items()):
         if value.get("type") == "array" and "items" in value:
@@ -436,106 +456,81 @@ def compile_to_openapi30(schemas_path, docs_dir):
 def compile_schemas(schemas, output_dir):
     _compile_schemas(schemas, output_dir)
 
-def _compile_schemas(schemas, output_dir):
+def _compile_schemas(schema_dir, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     output_path = pathlib.Path(output_dir)
-    schemas_path = pathlib.Path(schemas)
+    schemas_path = pathlib.Path(schema_dir)
 
     compile_definitions(schemas_path, output_path)
     #add_descriptions(schemas_path)
 
-    output = CompileToJsonSchema(str(schemas_path / 'service.json')).get_as_string()
-    (output_path / 'service.json').write_text(output)
+    schemas = {}
+    for json_schema in schemas_path.glob("*.json"):
+        if str(json_schema).endswith('openapi.json'):
+            continue
+        schema = json.loads(json_schema.read_text())
+        schemas[json_schema.name] = schema
 
-    output = json.loads(output)
+    # service
+
+    output = compile_schema(copy.deepcopy(schemas['service.json']), schemas)
+    (output_path / 'service.json').write_text(json.dumps(output, indent=2))
+
+    package = {
+        "type": "array", "items": output
+    }
+
+    (output_path / 'service_package.json').write_text(json.dumps(package, indent=2))
+
     remove_one_to_many(output['properties'])
     (output_path / 'service_list.json').write_text(json.dumps(output, indent=2))
 
-    with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
-        package = {
-            "type": "array", "items": {"$ref": "service.json"}
-        }
+    # organization
 
-        fp.write(json.dumps(package).encode())
-        fp.flush()
-        output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
-        (output_path / 'service_package.json').write_text(output)
-        fp.close()
-        os.unlink(fp.name)
+    organization = copy.deepcopy(schemas['organization.json'])
 
+    organization['properties']['services'] = {
+        "type": "array", "items": {"$ref": "service.json"}
+    }
 
-    with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
+    output = compile_schema(organization, schemas)
 
-        organization = json.loads((schemas_path / 'organization.json').read_text())
-        organization['properties']['services'] = {
-            "type": "array", "items": {"$ref": "service.json"}
-        }
+    (output_path / 'organization.json').write_text(json.dumps(output, indent=2))
 
-        fp.write(json.dumps(organization).encode())
-        fp.flush()
+    package = {
+        "type": "array", "items": output
+    }
 
-        organization_name = fp.name
+    (output_path / 'organization_package.json').write_text(json.dumps(package, indent=2))
 
-        output = CompileToJsonSchema(str(schemas_path / organization_name)).get_as_string()
-        (output_path / 'organization.json').write_text(output)
+    remove_one_to_many(output['properties'])
+    (output_path / 'organization_list.json').write_text(json.dumps(output, indent=2))
 
-        output = json.loads(output)
-        remove_one_to_many(output['properties'])
-        (output_path / 'organization_list.json').write_text(json.dumps(output, indent=2))
-        fp.close()
-        os.unlink(fp.name)
+    # service at location
 
-        with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
-            package = {
-                "type": "array", "items": {"$ref": organization_name}
-            }
+    service_at_location = copy.deepcopy(schemas['service_at_location.json'])
 
-            fp.write(json.dumps(package).encode())
-            fp.flush()
-            output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
-            (output_path / 'organization_package.json').write_text(output)
-            fp.close()
-            os.unlink(fp.name)
+    service_at_location['properties']['service'] = {
+        "name": "service",
+        "$ref": "service.json"
+    }
+    
+    output = compile_schema(service_at_location, schemas)
 
+    output['properties']['service']['properties'].pop('service_at_locations')
 
-    with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
+    (output_path / 'service_at_location.json').write_text(json.dumps(output, indent=2))
 
-        service_at_location = json.loads((schemas_path / 'service_at_location.json').read_text())
-        service_at_location['properties']['service'] = {
-            "name": "service",
-            "$ref": "service.json"
-        }
-        fp.write(json.dumps(service_at_location).encode())
-        fp.flush()
+    package = {
+        "type": "array", "items": output
+    }
 
-        service_at_location_name = fp.name
+    (output_path / 'service_at_location_package.json').write_text(json.dumps(package, indent=2))
 
-        output = CompileToJsonSchema(str(schemas_path / fp.name)).get()
+    remove_one_to_many(output['properties'])
 
-        output['properties']['service']['properties'].pop('service_at_locations')
+    (output_path / 'service_at_location_list.json').write_text(json.dumps(output, indent=2))
 
-        (output_path / 'service_at_location.json').write_text(json.dumps(output, indent=2))
-
-        remove_one_to_many(output['properties'])
-        (output_path / 'service_at_location_list.json').write_text(json.dumps(output, indent=2))
-        fp.close()
-        os.unlink(fp.name)
-        
-        with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
-            package = {
-                "type": "array", "items": {"$ref": service_at_location_name}
-            }
-
-            fp.write(json.dumps(package, indent=2).encode())
-            fp.flush()
-
-            output = CompileToJsonSchema(str(schemas_path / fp.name)).get()
-
-            output['items']['properties']['service']['properties'].pop('service_at_locations')
-
-            (output_path / 'service_at_location_package.json').write_text(json.dumps(output, indent=2))
-            fp.close()
-            os.unlink(fp.name)
 
 @cli.command()
 def docs_all():

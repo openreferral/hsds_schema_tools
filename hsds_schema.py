@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import csv
 import os
 import json
@@ -453,7 +451,7 @@ def _compile_schemas(schemas, output_dir):
     remove_one_to_many(output['properties'])
     (output_path / 'service_list.json').write_text(json.dumps(output, indent=2))
 
-    with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+    with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
         package = {
             "type": "array", "items": {"$ref": "service.json"}
         }
@@ -462,9 +460,11 @@ def _compile_schemas(schemas, output_dir):
         fp.flush()
         output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
         (output_path / 'service_package.json').write_text(output)
+        fp.close()
+        os.unlink(fp.name)
 
 
-    with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+    with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
 
         organization = json.loads((schemas_path / 'organization.json').read_text())
         organization['properties']['services'] = {
@@ -482,8 +482,10 @@ def _compile_schemas(schemas, output_dir):
         output = json.loads(output)
         remove_one_to_many(output['properties'])
         (output_path / 'organization_list.json').write_text(json.dumps(output, indent=2))
+        fp.close()
+        os.unlink(fp.name)
 
-        with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+        with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
             package = {
                 "type": "array", "items": {"$ref": organization_name}
             }
@@ -492,9 +494,11 @@ def _compile_schemas(schemas, output_dir):
             fp.flush()
             output = CompileToJsonSchema(str(schemas_path / fp.name)).get_as_string()
             (output_path / 'organization_package.json').write_text(output)
+            fp.close()
+            os.unlink(fp.name)
 
 
-    with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+    with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
 
         service_at_location = json.loads((schemas_path / 'service_at_location.json').read_text())
         service_at_location['properties']['service'] = {
@@ -514,20 +518,24 @@ def _compile_schemas(schemas, output_dir):
 
         remove_one_to_many(output['properties'])
         (output_path / 'service_at_location_list.json').write_text(json.dumps(output, indent=2))
-
-        with tempfile.NamedTemporaryFile(dir=schemas) as fp:
+        fp.close()
+        os.unlink(fp.name)
+        
+        with tempfile.NamedTemporaryFile(dir=schemas,delete=False) as fp:
             package = {
                 "type": "array", "items": {"$ref": service_at_location_name}
             }
 
             fp.write(json.dumps(package, indent=2).encode())
             fp.flush()
+
             output = CompileToJsonSchema(str(schemas_path / fp.name)).get()
 
             output['items']['properties']['service']['properties'].pop('service_at_locations')
 
             (output_path / 'service_at_location_package.json').write_text(json.dumps(output, indent=2))
-
+            fp.close()
+            os.unlink(fp.name)
 
 @cli.command()
 def docs_all():
@@ -580,3 +588,4 @@ def profile_all(profile_url, branch, clean=False):
 
 if __name__ == '__main__':
     cli()
+

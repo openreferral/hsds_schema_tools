@@ -317,6 +317,9 @@ def example(schemas, base, paginated):
             continue
         schema = json.loads(json_schema.read_text())
         schemas[schema["name"]] = schema
+
+    if base not in schemas:
+        return
     
     if base == 'organization':
         schemas["service"]["properties"].pop("organization")
@@ -357,9 +360,12 @@ def _schemas_to_doc_examples(schemas, output):
         ('taxonomy_term', 'taxonomy_term_list.json', True),
     ]
 
+
     for entity, filename, simple in examples:
-        with open(output_path / filename, 'w+') as f:
-            json.dump(example(schemas, entity, simple), f, indent=2)
+        example_json = example(schemas, entity, simple)
+        if example_json:
+            with open(output_path / filename, 'w+') as f:
+                json.dump(example_json, f, indent=2)
 
     os.makedirs(output_path / 'csv', exist_ok=True)
 

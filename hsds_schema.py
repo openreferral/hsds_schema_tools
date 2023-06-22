@@ -448,7 +448,17 @@ def compile_to_openapi30(schemas_path, docs_dir):
     open_api_data['info'] = {
         "title": "HSDS OpenAPI",
         "version": "3.0",
-        "description": "Open API for the Human Services Data Specification. See [HSDS documentation](http://docs.openreferral.org/en/3.0/) for more details on the specification." ,
+        "description": """
+Open Referral develops data standards and open source tools that make it easier to share, find and use information about health, human, and social services i.e. community resource directory data. Our Human Service Data Specification (HSDS, AKA ‘the Open Referral format’) is a data exchange format that enables resource directory data to be shared among heterogeneous information systems. 
+
+We provide an [OpenAPI](https://www.openapis.org/) specification that can be used as a blueprint for the design or adaptation of API platforms to provide read or read/write access to information on organizations, services, locations and the details about them. The API protocol provides most of the functionality needed for simple access and exchange of data.
+
+This Swagger UI will aid the development of API's that will validate against the Open API specification. 
+
+For further info please see:
+- [API Reference Section in the Docs](http://docs.openreferral.org/en/latest/hsds/api_reference.html#)
+- [API Specification (GitHub)](https://github.com/openreferral/specification/tree/3.0/schema/openapi.json) &  [Issue tracker](https://github.com/openreferral/specification/issues)
+        """ ,
         "license": {
           "name": "Creative Commons Attribution Share-Alike 4.0 license",
           "url": "https://creativecommons.org/licenses/by/4.0/"

@@ -439,6 +439,23 @@ def remove_one_to_many(properties):
         if value.get("type") == "object" and "properties" in value:
             remove_one_to_many(value["properties"])
 
+@cli.command()
+@click.argument('openapi31_file')
+def openapi31_to_openapi30(openapi31_file):
+
+    print( _openapi31_to_openapi30(openapi31_file)  )
+
+
+
+def _openapi31_to_openapi30(openapi_path):
+    input_path = pathlib.Path(openapi_path)
+
+    open_api_data = json.loads(input_path.read_text())
+
+    open_api_data['openapi'] = "3.0.0"
+    open_api_data.pop('jsonSchemaDialect')
+    
+    return json.dumps(open_api_data, indent=2)
 
 def compile_to_openapi30(schemas_path, docs_dir):
     open_api_data = json.loads((schemas_path / 'openapi.json').read_text())

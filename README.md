@@ -118,3 +118,13 @@ python hsds_schema.py schemas-to-examples --simple schema_directory service > si
 python hsds_schema.py schemas-to-examples schema_directory organization > organization_example.json 
 python hsds_schema.py schemas-to-examples --simple schema_directory organization > simple_organization_example.json
 ```
+
+### profile-all
+
+Runs all actions required to generate a profile from HSDS Schemas + defined changes. Requires a URI.
+
+Example:
+
+```
+hsds_schema.py profile-all https://github.com/openreferral/hsds_example_profile --clean
+```

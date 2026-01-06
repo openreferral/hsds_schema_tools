@@ -40,7 +40,7 @@ Commands:
 
 ### Clean Datapackage
 
-Takes a ```datapackage.json``` and returns one reformatted with consistant indentation and whitespace.
+Takes a `datapackage.json` and returns one reformatted with consistant indentation and whitespace.
 Also makes sure contrains keys always exists and contain `required` and `unique` keys.
 Will overwrite `datapackage.json` inplace.
 
@@ -51,7 +51,7 @@ hsds_schema.py clean-datapackage datapackage.json
 
 ### Flatten
 
-Takes a ```datapackage.json``` and converts it into a CSV representation of the datgapackage.  This can be useful for editing in the flattened form.  Requires an output directory and will delete directory if it already exists.
+Takes a `datapackage.json` and converts it into a CSV representation of the datgapackage.  This can be useful for editing in the flattened form.  Requires an output directory and will delete directory if it already exists.
 
 Example:
 ```

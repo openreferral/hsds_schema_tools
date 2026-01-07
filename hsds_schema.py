@@ -44,7 +44,7 @@ def get_schemas_from_github(profile_url, branch='main'):
 
     # This check is added because the branch parameter should determine which branch of the HSDS spec repo is used as a basis for the Profile.
     # However, we can't default branch to `None` because it's being used to create profile_url below, and is set to "main" on the first line of the profile_to_schema function.
-    if branch is not "main":
+    if branch != "main":
         url += f"?ref={branch}"
 
 

@@ -40,7 +40,13 @@ def tabular_example(schemas):
     return output
 
 def get_schemas_from_github(profile_url, branch='main'):
-    url = "https://api.github.com/repos/openreferral/specification/contents/schema?ref=3.0"
+    url = "https://api.github.com/repos/openreferral/specification/contents/schema"
+
+    # This check is added because the branch parameter should determine which branch of the HSDS spec repo is used as a basis for the Profile.
+    # However, we can't default branch to `None` because it's being used to create profile_url below, and is set to "main" on the first line of the profile_to_schema function.
+    if branch != "main":
+        url += f"?ref={branch}"
+
 
     if profile_url.startswith("https://github.com"):
         path = profile_url.replace("https://github.com", "")
@@ -50,6 +56,7 @@ def get_schemas_from_github(profile_url, branch='main'):
     data = json.loads(response.text)
 
     schemas = {}
+
     for file in data:
         # get the download URL and the file name
         url = file['download_url']
@@ -58,7 +65,7 @@ def get_schemas_from_github(profile_url, branch='main'):
         filename = file['name']
 
         response_text = requests.get(url).text
-        if filename == 'openapi.json':
+        if filename == 'openapi.json': # TODO: refactor this out of here. It's way out of scope for a function which implies that its sole job is the get the HSDS Schemas to use as a basis for the Profile, and is also operating on a hardcoded string which assumes the 3.0 branch of the spec.
             response_text = response_text.replace('https://raw.githubusercontent.com/openreferral/specification/3.0', profile_url)
 
         response = json.loads(response_text)

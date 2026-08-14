@@ -507,16 +507,22 @@ def _compile_schemas(schema_dir, output_dir):
 
     (output_path / 'service_package.json').write_text(json.dumps(package, indent=2))
 
-    remove_one_to_many(output['properties'])
+    # This logic causes discrepancies between the compiled version and the uncompiled version
+    # See https://forum.openreferral.org/t/compiled-schemas-considered-harmful/839/
+
+    #remove_one_to_many(output['properties'])
     (output_path / 'service_list.json').write_text(json.dumps(output, indent=2))
 
     # organization
 
     organization = copy.deepcopy(schemas['organization.json'])
 
-    organization['properties']['services'] = {
-        "type": "array", "items": {"$ref": "service.json"}
-    }
+    # This logic causes discrepancies between the compiled version and the uncompiled version
+    # See https://forum.openreferral.org/t/compiled-schemas-considered-harmful/839/
+
+    #organization['properties']['services'] = {
+    #    "type": "array", "items": {"$ref": "service.json"}
+    #}
 
     output = compile_schema(organization, schemas)
 
@@ -528,7 +534,10 @@ def _compile_schemas(schema_dir, output_dir):
 
     (output_path / 'organization_package.json').write_text(json.dumps(package, indent=2))
 
-    remove_one_to_many(output['properties'])
+    # This logic causes discrepancies between the compiled version and the uncompiled version
+    # See https://forum.openreferral.org/t/compiled-schemas-considered-harmful/839/
+
+    # remove_one_to_many(output['properties'])
     (output_path / 'organization_list.json').write_text(json.dumps(output, indent=2))
 
     # service at location
@@ -552,7 +561,10 @@ def _compile_schemas(schema_dir, output_dir):
 
     (output_path / 'service_at_location_package.json').write_text(json.dumps(package, indent=2))
 
-    remove_one_to_many(output['properties'])
+    # This logic causes discrepancies between the compiled version and the uncompiled version
+    # See https://forum.openreferral.org/t/compiled-schemas-considered-harmful/839/
+
+    #remove_one_to_many(output['properties'])
 
     (output_path / 'service_at_location_list.json').write_text(json.dumps(output, indent=2))
 

@@ -571,7 +571,10 @@ def docs_all():
         f.write(datapackage)
 
     _schemas_to_doc_examples(schema_dir, example_dir)
-    _compile_schemas(schema_dir, compiled_dir)
+
+    # This functionality has been removed from this command as a response to a decision by the Technical Committee
+    # See https://forum.openreferral.org/t/compiled-schemas-considered-harmful/839/ 
+    #_compile_schemas(schema_dir, compiled_dir)
 
 
 @cli.command()
